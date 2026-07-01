@@ -8,6 +8,15 @@ from retrieval.search import search_catalog
 app = FastAPI()
 
 
+@app.get("/")
+def root():
+    return {
+        "message": "SHL Assessment Agent API is running",
+        "health": "/health",
+        "docs": "/docs"
+    }
+
+
 class Message(BaseModel):
     role: str
     content: str
