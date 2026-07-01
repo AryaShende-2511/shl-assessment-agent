@@ -1,54 +1,35 @@
 import pickle
-import faiss
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Load embedding model
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# Load FAISS index
-index = faiss.read_index("data/catalog.index")
-
-# Load metadata
 with open("data/metadata.pkl", "rb") as f:
     catalog = pickle.load(f)
 
+documents = []
 
-def search_catalog(query, top_k=10):
-    """
-    Semantic search over SHL catalog.
-    """
+for item in catalog:
+    text = (
+        item["name"] + " "
+        + item.get("description", "") + " "
+        + " ".join(item.get("keys", []))
+    )
+    documents.append(text)
 
-    query_vector = model.encode([query])
+vectorizer = TfidfVectorizer(stop_words="english")
+tfidf_matrix = vectorizer.fit_transform(documents)
 
-    distances, indices = index.search(query_vector, top_k)
+
+def search_catalog(query, top_k=5):
+
+    query_vec = vectorizer.transform([query])
+
+    scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
+
+    top_idx = scores.argsort()[::-1][:top_k]
 
     results = []
 
-    for i in indices[0]:
-        results.append({
-        "name": catalog[i]["name"],
-        "url": catalog[i]["link"],
-        "description": catalog[i]["description"],
-        "job_levels": catalog[i].get("job_levels", []),
-        "duration": catalog[i].get("duration"),
-        "keys": catalog[i].get("keys", [])
-    })
+    for i in top_idx:
+        results.append(catalog[i])
 
     return results
-
-
-if __name__ == "__main__":
-
-    query = input("Enter query: ")
-
-    results = search_catalog(query)
-
-    print("\nTop Results\n")
-
-    for i, r in enumerate(results, 1):
-
-        print("=" * 60)
-        print(i)
-        print(r["name"])
-        print(r["url"])
-        print(r["description"])
